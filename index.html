@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riaz Family — FIFA Prediction Map</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --pitch-night:#0b1f1a;
+    --pitch-night-2:#0f2920;
+    --turf:#1c4d3a;
+    --turf-line:#2f6b4f;
+    --gold:#e8b95e;
+    --gold-bright:#f4cf83;
+    --coral:#ef6f5b;
+    --chalk:#f3efe3;
+    --chalk-dim:#cfd6cd99;
+    --card:#11241d;
+    --card-2:#142c23;
+    --shadow: 0 10px 30px -10px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(1200px 600px at 50% -10%, #143226 0%, var(--pitch-night) 55%, #07140f 100%);
+    color:var(--chalk);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  /* faux turf stripes ambient bg */
+  .turf-stripes{
+    position:fixed; inset:0; z-index:-1; opacity:.18; pointer-events:none;
+    background: repeating-linear-gradient(100deg, transparent 0 120px, #ffffff10 120px 124px);
+  }
+  h1,h2,h3,.display{
+    font-family: 'Oswald', 'Arial Narrow', sans-serif;
+    font-weight:700;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  /* HEADER */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    background:linear-gradient(180deg, rgba(11,31,26,.97), rgba(11,31,26,.85));
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid #ffffff14;
+  }
+  .topbar-inner{
+    max-width:1080px; margin:0 auto; padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .crest{
+    width:38px;height:38px;border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #a87a2e 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px; box-shadow:0 0 0 3px #ffffff10, var(--shadow);
+  }
+  .brand-text .t1{font-size:11px; color:var(--chalk-dim); letter-spacing:2px;}
+  .brand-text .t2{font-size:18px; color:var(--gold-bright); line-height:1.1;}
+
+  .tabs{display:flex; gap:6px; flex-wrap:wrap; padding:10px 20px 0; max-width:1080px; margin:0 auto;}
+  .tab-btn{
+    background:var(--card); color:var(--chalk-dim); border:1px solid #ffffff14;
+    padding:9px 16px; border-radius:999px; cursor:pointer; font-size:13px; font-weight:600;
+    transition:all .2s ease; white-space:nowrap;
+  }
+  .tab-btn:hover{ border-color: var(--turf-line); color:var(--chalk);}
+  .tab-btn.active{
+    background:linear-gradient(135deg, var(--gold), #c79443); color:#1a1206; border-color:transparent;
+    box-shadow:0 4px 14px -4px #00000080;
+  }
+  .tab-btn.admin-tab{border-color:#ef6f5b55; color:#f0a193;}
+  .tab-btn.admin-tab.active{background:linear-gradient(135deg, var(--coral), #c4503f); color:#fff;}
+
+  main{max-width:1080px; margin:0 auto; padding:24px 20px 80px;}
+  .panel{display:none; animation:fadeIn .35s ease;}
+  .panel.active{display:block;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* LOGIN CARD */
+  .login-wrap{display:flex; justify-content:center; padding-top:60px;}
+  .login-card{
+    background:var(--card); border:1px solid #ffffff14; border-radius:18px; padding:34px 30px;
+    max-width:380px; width:100%; text-align:center; box-shadow:var(--shadow);
+  }
+  .login-card .ball{font-size:42px; margin-bottom:8px; animation:spin 6s linear infinite;}
+  @keyframes spin{ to{transform:rotate(360deg);} }
+  .login-card h2{font-size:20px; color:var(--gold-bright); margin:6px 0 4px;}
+  .login-card p{font-size:13px; color:var(--chalk-dim); margin:0 0 20px;}
+  .login-card input{
+    width:100%; padding:13px 14px; border-radius:10px; border:1px solid #ffffff22;
+    background:#0d1f18; color:var(--chalk); font-size:15px; margin-bottom:12px; outline:none;
+  }
+  .login-card input:focus{ border-color: var(--gold); }
+  .btn{
+    width:100%; padding:13px; border-radius:10px; border:none; cursor:pointer;
+    background:linear-gradient(135deg, var(--gold-bright), var(--gold)); color:#241804;
+    font-weight:700; font-size:14px; letter-spacing:.4px; text-transform:uppercase;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px -6px #e8b95e66; }
+  .btn:active{ transform:translateY(0); }
+  .btn-outline{ background:transparent; border:1px solid #ffffff33; color:var(--chalk); }
+  .switch-user{margin-top:14px; font-size:12px; color:var(--chalk-dim);}
+  .switch-user a{color:var(--gold-bright); cursor:pointer; text-decoration:underline;}
+
+  /* ROUND HEADER */
+  .round-head{
+    display:flex; align-items:center; gap:12px; margin: 28px 0 14px;
+  }
+  .round-head:first-child{margin-top:0;}
+  .round-head .line{flex:1; height:1px; background:linear-gradient(90deg, var(--turf-line), transparent);}
+  .round-head h3{font-size:14px; color:var(--gold-bright); margin:0; letter-spacing:2px;}
+  .round-sub{font-size:11px; color:var(--chalk-dim); margin-top:-10px; margin-bottom:16px;}
+
+  /* MATCH CARD */
+  .match-grid{display:grid; grid-template-columns:1fr; gap:12px;}
+  .match-card{
+    background:var(--card); border:1px solid #ffffff14; border-radius:14px;
+    padding:14px 16px; position:relative; overflow:hidden;
+  }
+  .match-meta{font-size:11px; color:var(--chalk-dim); margin-bottom:10px; display:flex; justify-content:space-between;}
+  .match-meta .stage-pill{background:#ffffff10; padding:2px 9px; border-radius:999px; letter-spacing:.5px;}
+  .teams-row{display:flex; align-items:center; gap:10px;}
+  .team-btn{
+    flex:1; display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:10px;
+    background:#0d1f18; border:1.5px solid #ffffff18; cursor:pointer;
+    transition:all .18s ease; text-align:left;
+  }
+  .team-btn:hover{ border-color:var(--turf-line); background:#10271e; }
+  .team-btn.picked{
+    border-color:var(--gold); background:linear-gradient(135deg, #2a2008, #1d1a0d);
+    box-shadow:inset 0 0 0 1px var(--gold-bright);
+  }
+  .team-btn.winner-actual{ border-color:#4caf7d; }
+  .team-btn.loser-actual{ opacity:.45; }
+  .flag{
+    width:30px; height:22px; border-radius:4px; flex-shrink:0;
+    background:linear-gradient(135deg,#3a5a4a,#22392e); display:flex; align-items:center; justify-content:center;
+    font-size:14px;
+  }
+  .team-name{font-size:14px; font-weight:600;}
+  .vs-divider{font-size:11px; color:var(--chalk-dim); font-weight:700; padding:0 2px;}
+  .vote-bar-wrap{margin-top:10px; height:6px; border-radius:4px; background:#ffffff0f; overflow:hidden; display:flex;}
+  .vote-bar-a{background:var(--gold); height:100%; transition:width .4s ease;}
+  .vote-bar-b{background:var(--coral); height:100%; transition:width .4s ease;}
+  .vote-count{font-size:10.5px; color:var(--chalk-dim); margin-top:5px; display:flex; justify-content:space-between;}
+  .lock-note{font-size:10.5px; color:#f0a193; margin-top:8px; display:flex; gap:5px; align-items:center;}
+  .pending-note{font-size:10.5px; color:var(--chalk-dim); margin-top:8px; font-style:italic;}
+
+  /* DASHBOARD */
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:26px;}
+  .stat-card{background:var(--card); border:1px solid #ffffff14; border-radius:14px; padding:18px;}
+  .stat-card .num{font-size:28px; color:var(--gold-bright); font-family:'Oswald',sans-serif;}
+  .stat-card .lbl{font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:1px; margin-top:4px;}
+
+  .leaderboard{background:var(--card); border:1px solid #ffffff14; border-radius:16px; overflow:hidden;}
+  .lb-row{
+    display:flex; align-items:center; gap:14px; padding:14px 18px; border-bottom:1px solid #ffffff0c;
+    transition:background .2s;
+  }
+  .lb-row:last-child{border-bottom:none;}
+  .lb-row.me{background:#e8b95e14;}
+  .lb-rank{
+    width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px; background:#ffffff10; flex-shrink:0;
+  }
+  .lb-row:nth-child(1) .lb-rank{background:linear-gradient(135deg,#ffe9b0,#d9a93e); color:#241804;}
+  .lb-row:nth-child(2) .lb-rank{background:linear-gradient(135deg,#e3e3e3,#a9a9a9); color:#222;}
+  .lb-row:nth-child(3) .lb-rank{background:linear-gradient(135deg,#e0b08a,#a86f43); color:#241804;}
+  .lb-name{flex:1; font-weight:600; font-size:14.5px;}
+  .lb-score{font-family:'Oswald',sans-serif; font-size:18px; color:var(--gold-bright);}
+  .lb-meta{font-size:11px; color:var(--chalk-dim);}
+
+  .champion-banner{
+    text-align:center; padding:50px 20px; border-radius:18px; margin-bottom:24px;
+    background: radial-gradient(circle at 50% 0%, #2a230c, var(--card) 70%);
+    border:1px solid var(--gold); position:relative; overflow:hidden;
+  }
+  .champion-banner .trophy{font-size:56px; animation:bounce 1.8s ease-in-out infinite;}
+  @keyframes bounce{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  .champion-banner h2{color:var(--gold-bright); font-size:26px; margin:10px 0 2px;}
+  .champion-banner p{color:var(--chalk-dim); font-size:13px;}
+
+  /* ADMIN */
+  .admin-gate{display:flex; justify-content:center; padding-top:60px;}
+  .admin-match-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:var(--card); border:1px solid #ffffff14; border-radius:12px; padding:12px 16px; margin-bottom:8px;
+  }
+  .admin-match-row .label{font-size:13px;}
+  .admin-match-row select{
+    background:#0d1f18; color:var(--chalk); border:1px solid #ffffff22; border-radius:8px; padding:7px 10px; font-size:13px;
+  }
+  .admin-saved{color:#4caf7d; font-size:11px; margin-left:6px;}
+
+  .empty-state{text-align:center; padding:50px 20px; color:var(--chalk-dim);}
+  .empty-state .ico{font-size:34px; margin-bottom:10px;}
+
+  /* confetti */
+  .confetti{position:fixed; top:-10px; width:8px; height:14px; opacity:.9; z-index:999; pointer-events:none;}
+
+  footer{text-align:center; padding:30px 20px; color:#ffffff33; font-size:11px;}
+
+  ::-webkit-scrollbar{height:6px; width:6px;}
+  ::-webkit-scrollbar-thumb{background:#ffffff22; border-radius:3px;}
+
+  @media (max-width:480px){
+    .brand-text .t2{font-size:15px;}
+    .login-card{padding:26px 20px;}
+  }
+</style>
+</head>
+<body>
+<div class="turf-stripes"></div>
+
+<!-- ============ CONFIG NOTICE (shown if Supabase not configured) ============ -->
+<div id="configNotice" style="display:none; background:#7a2f2f; color:#fff; padding:12px 18px; font-size:13px; text-align:center;">
+  ⚠️ Supabase isn't connected yet — open this file and fill in <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> near the top of the script. See the README notes at the bottom of the page source.
+</div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="crest">⚽</div>
+      <div class="brand-text">
+        <div class="t1">RIAZ FAMILY</div>
+        <div class="t2 display">FIFA Prediction Map</div>
+      </div>
+    </div>
+    <div id="userChip" style="font-size:12px; color:var(--chalk-dim); display:none;">
+      Playing as <strong id="userChipName" style="color:var(--gold-bright);"></strong>
+      <a id="switchUserLink" style="color:var(--coral); cursor:pointer; margin-left:8px; text-decoration:underline;">switch</a>
+    </div>
+  </div>
+  <nav class="tabs" id="tabsNav" style="display:none;"></nav>
+</header>
+
+<main>
+
+  <!-- ===================== LOGIN / NAME ENTRY ===================== -->
+  <section id="loginPanel" class="panel active">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="ball">⚽</div>
+        <h2>Who's predicting?</h2>
+        <p>Enter your name to start picking winners. Everyone in the family shares this board.</p>
+        <input id="nameInput" type="text" placeholder="e.g. Hadi" maxlength="24"/>
+        <button class="btn" id="enterBtn">Enter the bracket</button>
+        <div class="switch-user">Made a mistake? You can switch names anytime from the top bar.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PREDICT (per-user) ===================== -->
+  <section id="predictPanel" class="panel">
+    <div id="predictContent"></div>
+  </section>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section id="dashboardPanel" class="panel">
+    <div id="championSlot"></div>
+    <div class="stat-grid" id="statGrid"></div>
+    <h3 style="color:var(--gold-bright); font-size:14px; letter-spacing:2px; margin-bottom:10px;">LEADERBOARD</h3>
+    <div class="leaderboard" id="leaderboardList"></div>
+  </section>
+
+  <!-- ===================== ADMIN ===================== -->
+  <section id="adminPanel" class="panel">
+    <div id="adminContent"></div>
+  </section>
+
+</main>
+
+<footer>Riaz Family FIFA Prediction Map · World Cup 2026 · Built for the squad 🏆</footer>
+
+<script>
+/* ======================================================================
+   1) SUPABASE CONFIG — fill these two lines in, then re-upload to GitHub
+   ====================================================================== */
+const SUPABASE_URL = "https://ycafiubyxklhltyphysm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljYWZpdWJ5eGtsaGx0eXBoeXNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MjEzMDAsImV4cCI6MjA5ODE5NzMwMH0.op3zZ7F3dFpn3HFR_KxrVRLVp2OczsOEqOspKJSR49M";
+const ADMIN_PASSWORD = "riaz2026";                       // ⚠️ change this before sharing the link!
+
+/* ======================================================================
+   2) BRACKET DATA — Round of 32, World Cup 2026 (as of June 28, 2026)
+   ====================================================================== */
+const ROUND_32 = [
+  { id:"r32_01", a:"South Africa", b:"Canada",               venue:"Inglewood, USA",   date:"Jun 28" },
+  { id:"r32_02", a:"Brazil",       b:"Japan",                 venue:"Houston, USA",     date:"Jun 29" },
+  { id:"r32_03", a:"Germany",      b:"Paraguay",               venue:"Foxborough, USA",  date:"Jun 29" },
+  { id:"r32_04", a:"Netherlands",  b:"Morocco",                venue:"Monterrey, MEX",   date:"Jun 29" },
+  { id:"r32_05", a:"Ivory Coast",  b:"Norway",                 venue:"Arlington, USA",   date:"Jun 30" },
+  { id:"r32_06", a:"France",       b:"Sweden",                 venue:"East Rutherford, USA", date:"Jun 30" },
+  { id:"r32_07", a:"Mexico",       b:"Ecuador",                venue:"Mexico City, MEX", date:"Jul 1" },
+  { id:"r32_08", a:"USA",          b:"Bosnia and Herzegovina", venue:"Santa Clara, USA", date:"Jul 1" },
+  { id:"r32_09", a:"England",      b:"DR Congo",                venue:"Atlanta, USA",     date:"Jul 1" },
+  { id:"r32_10", a:"Belgium",      b:"Senegal",                 venue:"Seattle, USA",     date:"Jul 1" },
+  { id:"r32_11", a:"Switzerland",  b:"Algeria",                 venue:"Vancouver, CAN",   date:"Jul 2" },
+  { id:"r32_12", a:"Portugal",     b:"Croatia",                 venue:"Toronto, CAN",     date:"Jul 2" },
+  { id:"r32_13", a:"Spain",        b:"Austria",                 venue:"Inglewood, USA",   date:"Jul 2" },
+  { id:"r32_14", a:"Australia",    b:"Egypt",                   venue:"Arlington, USA",   date:"Jul 3" },
+  { id:"r32_15", a:"Argentina",    b:"Cape Verde",               venue:"Miami Gardens, USA", date:"Jul 3" },
+  { id:"r32_16", a:"Colombia",     b:"Ghana",                    venue:"Kansas City, USA", date:"Jul 3" },
+];
+// NOTE: a couple of late third-place slot assignments (matches above involving
+// third-placed teams) were finalized only in the final hours of the group stage.
+// Worth a quick cross-check against fifa.com before each kickoff, just in case.
+
+const ROUNDS = ["R32","R16","QF","SF","F"];
+const ROUND_LABELS = { R32:"Round of 32", R16:"Round of 16", QF:"Quarter-Finals", SF:"Semi-Finals", F:"Final" };
+const POINTS_PER_WIN = 2;
+
+/* ======================================================================
+   3) APP STATE
+   ====================================================================== */
+let supabase = null;
+let currentUser = localStorage.getItem("riaz_fifa_user") || null;
+let predictionsCache = [];   // {name, match_id, pick}
+let resultsCache = [];       // {match_id, winner}
+let isAdmin = false;
+
+function initSupabase(){
+  if(SUPABASE_URL.includes("YOUR_") || SUPABASE_ANON_KEY.includes("YOUR_")){
+    document.getElementById("configNotice").style.display = "block";
+    return false;
+  }
+  try{
+    if(!window.supabase || typeof window.supabase.createClient !== "function"){
+      throw new Error("Supabase library not loaded (CDN script may have failed to load)");
+    }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return true;
+  } catch(err){
+    console.error("initSupabase failed:", err);
+    showConnectionWarning();
+    supabase = null;
+    return false;
+  }
+}
+
+/* ======================================================================
+   4) DATA FETCH / SAVE
+   ====================================================================== */
+async function fetchAll(){
+  if(!supabase) return;
+  try{
+    const [{data:preds, error:e1}, {data:res, error:e2}] = await Promise.all([
+      supabase.from("predictions").select("*"),
+      supabase.from("results").select("*"),
+    ]);
+    if(e1) console.error("predictions fetch error:", e1);
+    if(e2) console.error("results fetch error:", e2);
+    predictionsCache = preds || [];
+    resultsCache = res || [];
+  } catch(err){
+    console.error("Supabase fetchAll failed:", err);
+    showConnectionWarning();
+  }
+}
+
+function showConnectionWarning(){
+  const notice = document.getElementById("configNotice");
+  notice.style.display = "block";
+  notice.textContent = "⚠️ Couldn't reach Supabase. If you're opening this file directly from your computer, try hosting it on GitHub Pages instead — some browsers block this kind of connection from local files. Predictions won't save until this is resolved.";
+}
+
+async function savePrediction(matchId, pick){
+  if(!supabase || !currentUser) return;
+  // upsert-by-hand since match_id+name should be unique
+  const existing = predictionsCache.find(p => p.match_id===matchId && p.name===currentUser);
+  if(existing){
+    await supabase.from("predictions").update({pick}).eq("id", existing.id);
+  } else {
+    await supabase.from("predictions").insert({name: currentUser, match_id: matchId, pick});
+  }
+  await fetchAll();
+  renderPredictPanel();
+}
+
+async function saveResult(matchId, winner){
+  if(!supabase) return;
+  const existing = resultsCache.find(r => r.match_id===matchId);
+  if(existing){
+    await supabase.from("results").update({winner}).eq("id", existing.id);
+  } else {
+    await supabase.from("results").insert({match_id: matchId, winner});
+  }
+  await fetchAll();
+  renderAdminPanel();
+  renderDashboard();
+}
+
+function resultFor(matchId){
+  const r = resultsCache.find(r => r.match_id===matchId);
+  return r ? r.winner : null;
+}
+function pickFor(matchId, name){
+  const p = predictionsCache.find(p => p.match_id===matchId && p.name===name);
+  return p ? p.pick : null;
+}
+function allNames(){
+  const set = new Set(predictionsCache.map(p=>p.name));
+  if(currentUser) set.add(currentUser);
+  return Array.from(set).sort();
+}
+
+/* ======================================================================
+   5) BRACKET PROGRESSION — build R16/QF/SF/F dynamically from results
+   ====================================================================== */
+function buildBracket(){
+  let prevRound = ROUND_32.map(m => ({...m, round:"R32"}));
+  const allRounds = { R32: prevRound };
+  for(let i=1;i<ROUNDS.length;i++){
+    const roundKey = ROUNDS[i];
+    const nextRound = [];
+    for(let j=0;j<prevRound.length;j+=2){
+      const m1 = prevRound[j], m2 = prevRound[j+1];
+      const w1 = m1 ? resultFor(m1.id) : null;
+      const w2 = m2 ? resultFor(m2.id) : null;
+      nextRound.push({
+        id: `${roundKey.toLowerCase()}_${(j/2)+1}`,
+        a: w1 || null, b: w2 || null,
+        fromA: m1.id, fromB: m2 ? m2.id : null,
+        venue: "TBD", date: "TBD",
+      });
+    }
+    allRounds[roundKey] = nextRound;
+    prevRound = nextRound;
+  }
+  return allRounds;
+}
+
+/* ======================================================================
+   6) RENDER: TABS
+   ====================================================================== */
+function renderTabs(){
+  const nav = document.getElementById("tabsNav");
+  const names = allNames();
+  let html = "";
+  names.forEach(n=>{
+    html += `<button class="tab-btn ${n===currentUser?'active':''}" data-tab="predict" data-user="${n}">${n}</button>`;
+  });
+  html += `<button class="tab-btn" data-tab="dashboard">📊 Dashboard</button>`;
+  html += `<button class="tab-btn admin-tab" data-tab="admin">🔒 Admin</button>`;
+  nav.innerHTML = html;
+  nav.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const tab = btn.dataset.tab;
+      if(tab==="predict" && btn.dataset.user){
+        currentUser = btn.dataset.user;
+        localStorage.setItem("riaz_fifa_user", currentUser);
+      }
+      showPanel(tab);
+    });
+  });
+}
+
+function showPanel(tab){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  if(tab==="predict"){
+    document.getElementById("predictPanel").classList.add("active");
+    renderPredictPanel();
+    document.querySelectorAll(`.tab-btn[data-user="${currentUser}"]`).forEach(b=>b.classList.add("active"));
+  } else if(tab==="dashboard"){
+    document.getElementById("dashboardPanel").classList.add("active");
+    renderDashboard();
+    document.querySelectorAll(`.tab-btn[data-tab="dashboard"]`).forEach(b=>b.classList.add("active"));
+  } else if(tab==="admin"){
+    document.getElementById("adminPanel").classList.add("active");
+    renderAdminPanel();
+    document.querySelectorAll(`.tab-btn[data-tab="admin"]`).forEach(b=>b.classList.add("active"));
+  }
+  updateUserChip();
+}
+
+function updateUserChip(){
+  const chip = document.getElementById("userChip");
+  if(currentUser){
+    chip.style.display = "block";
+    document.getElementById("userChipName").textContent = currentUser;
+  } else {
+    chip.style.display = "none";
+  }
+}
+
+/* ======================================================================
+   7) RENDER: PREDICT PANEL
+   ====================================================================== */
+function teamButtonHtml(matchId, side, teamName, opponentName){
+  if(!teamName) return `<div class="team-btn" style="opacity:.35; cursor:default;"><div class="flag">❔</div><div class="team-name">TBD</div></div>`;
+  const myPick = pickFor(matchId, currentUser);
+  const actualWinner = resultFor(matchId);
+  let cls = "team-btn";
+  if(myPick === teamName) cls += " picked";
+  if(actualWinner){
+    cls += (actualWinner === teamName) ? " winner-actual" : " loser-actual";
+  }
+  return `<button class="${cls}" data-match="${matchId}" data-pick="${teamName}" ${actualWinner? 'disabled':''}>
+      <div class="flag">${flagEmoji(teamName)}</div>
+      <div class="team-name">${teamName}</div>
+    </button>`;
+}
+
+const FLAG_MAP = {
+  "South Africa":"🇿🇦","Canada":"🇨🇦","Brazil":"🇧🇷","Japan":"🇯🇵","Germany":"🇩🇪","Paraguay":"🇵🇾",
+  "Netherlands":"🇳🇱","Morocco":"🇲🇦","Ivory Coast":"🇨🇮","Norway":"🇳🇴","France":"🇫🇷","Sweden":"🇸🇪",
+  "Mexico":"🇲🇽","Ecuador":"🇪🇨","USA":"🇺🇸","Bosnia and Herzegovina":"🇧🇦","England":"🏴","DR Congo":"🇨🇩",
+  "Belgium":"🇧🇪","Senegal":"🇸🇳","Switzerland":"🇨🇭","Algeria":"🇩🇿","Portugal":"🇵🇹","Croatia":"🇭🇷",
+  "Spain":"🇪🇸","Austria":"🇦🇹","Australia":"🇦🇺","Egypt":"🇪🇬","Argentina":"🇦🇷","Cape Verde":"🇨🇻",
+  "Colombia":"🇨🇴","Ghana":"🇬🇭",
+};
+function flagEmoji(name){ return FLAG_MAP[name] || "⚽"; }
+
+function voteBarHtml(matchId, teamA, teamB){
+  const votesA = predictionsCache.filter(p=>p.match_id===matchId && p.pick===teamA).length;
+  const votesB = predictionsCache.filter(p=>p.match_id===matchId && p.pick===teamB).length;
+  const total = votesA + votesB;
+  const pctA = total ? Math.round((votesA/total)*100) : 0;
+  const pctB = total ? 100 - pctA : 0;
+  if(total===0) return `<div class="pending-note">No predictions yet — be the first!</div>`;
+  return `
+    <div class="vote-bar-wrap">
+      <div class="vote-bar-a" style="width:${pctA}%"></div>
+      <div class="vote-bar-b" style="width:${pctB}%"></div>
+    </div>
+    <div class="vote-count"><span>${teamA}: ${votesA} (${pctA}%)</span><span>${teamB}: ${votesB} (${pctB}%)</span></div>
+  `;
+}
+
+function renderPredictPanel(){
+  if(!currentUser){ showLogin(); return; }
+  const container = document.getElementById("predictContent");
+  const bracket = buildBracket();
+  let html = `<h2 style="color:var(--gold-bright); font-size:20px; margin-bottom:2px;">${currentUser}'s Picks</h2>
+  <p style="color:var(--chalk-dim); font-size:13px; margin-top:0;">Tap a team to predict the winner. Locked matches show the real result.</p>`;
+
+  ROUNDS.forEach(roundKey=>{
+    const matches = bracket[roundKey];
+    const playable = matches.some(m=>m.a && m.b);
+    if(!playable && roundKey!=="R32") return; // hide future rounds until they're known
+    html += `<div class="round-head"><h3>${ROUND_LABELS[roundKey]}</h3><div class="line"></div></div>`;
+    html += `<div class="match-grid">`;
+    matches.forEach(m=>{
+      const actual = resultFor(m.id);
+      html += `<div class="match-card">
+        <div class="match-meta">
+          <span class="stage-pill">${ROUND_LABELS[roundKey]}</span>
+          <span>${m.venue!=="TBD" ? `${m.venue} · ${m.date}` : "Awaiting previous round"}</span>
+        </div>
+        <div class="teams-row">
+          ${teamButtonHtml(m.id, 'a', m.a, m.b)}
+          <span class="vs-divider">VS</span>
+          ${teamButtonHtml(m.id, 'b', m.b, m.a)}
+        </div>
+        ${m.a && m.b ? voteBarHtml(m.id, m.a, m.b) : ''}
+        ${actual ? `<div class="lock-note">🔒 Result: <strong style="color:#4caf7d">${actual}</strong> won</div>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+  container.querySelectorAll(".team-btn[data-match]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      savePrediction(btn.dataset.match, btn.dataset.pick);
+    });
+  });
+}
+
+/* ======================================================================
+   8) RENDER: DASHBOARD
+   ====================================================================== */
+function computeScores(){
+  const names = allNames();
+  const scores = {};
+  names.forEach(n=> scores[n] = {points:0, correct:0, total:0});
+  resultsCache.forEach(r=>{
+    predictionsCache.filter(p=>p.match_id===r.match_id).forEach(p=>{
+      if(!scores[p.name]) scores[p.name] = {points:0, correct:0, total:0};
+      scores[p.name].total += 1;
+      if(p.pick === r.winner){
+        scores[p.name].points += POINTS_PER_WIN;
+        scores[p.name].correct += 1;
+      }
+    });
+  });
+  return scores;
+}
+
+function renderDashboard(){
+  const scores = computeScores();
+  const sorted = Object.entries(scores).sort((a,b)=> b[1].points - a[1].points);
+
+  const finalResult = resultFor("f_1");
+  const champSlot = document.getElementById("championSlot");
+  if(finalResult){
+    champSlot.innerHTML = `<div class="champion-banner">
+      <div class="trophy">🏆</div>
+      <h2>${finalResult} are World Cup Champions!</h2>
+      <p>Check the leaderboard below to see who called it.</p>
+    </div>`;
+    fireConfetti();
+  } else {
+    champSlot.innerHTML = "";
+  }
+
+  const totalMatchesPlayed = resultsCache.length;
+  const totalPredictions = predictionsCache.length;
+  document.getElementById("statGrid").innerHTML = `
+    <div class="stat-card"><div class="num">${ROUND_32.length*2 - 1}</div><div class="lbl">Total knockout matches</div></div>
+    <div class="stat-card"><div class="num">${totalMatchesPlayed}</div><div class="lbl">Results entered</div></div>
+    <div class="stat-card"><div class="num">${allNames().length}</div><div class="lbl">Family predictors</div></div>
+    <div class="stat-card"><div class="num">${totalPredictions}</div><div class="lbl">Total picks made</div></div>
+  `;
+
+  const lbHtml = sorted.length ? sorted.map(([name,s],i)=>`
+    <div class="lb-row ${name===currentUser?'me':''}">
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-name">${name}${name===currentUser?' (you)':''}</div>
+      <div style="text-align:right;">
+        <div class="lb-score">${s.points} pts</div>
+        <div class="lb-meta">${s.correct}/${s.total || 0} correct</div>
+      </div>
+    </div>
+  `).join("") : `<div class="empty-state"><div class="ico">🏟️</div>No predictions yet. Be the first to make a pick!</div>`;
+  document.getElementById("leaderboardList").innerHTML = lbHtml;
+}
+
+function fireConfetti(){
+  const colors = ["#e8b95e","#ef6f5b","#4caf7d","#f3efe3"];
+  for(let i=0;i<60;i++){
+    const c = document.createElement("div");
+    c.className = "confetti";
+    c.style.left = Math.random()*100+"vw";
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.animation = `confettiFall ${2+Math.random()*2}s linear ${Math.random()*1.5}s forwards`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(), 5000);
+  }
+}
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `@keyframes confettiFall{ to{ transform: translateY(110vh) rotate(540deg); opacity:0; } }`;
+document.head.appendChild(styleSheet);
+
+/* ======================================================================
+   9) RENDER: ADMIN PANEL
+   ====================================================================== */
+function renderAdminPanel(){
+  const container = document.getElementById("adminContent");
+  if(!isAdmin){
+    container.innerHTML = `<div class="admin-gate">
+      <div class="login-card">
+        <div class="ball">🔒</div>
+        <h2>Admin access</h2>
+        <p>Enter the admin password to set match results.</p>
+        <input id="adminPassInput" type="password" placeholder="Password"/>
+        <button class="btn" id="adminLoginBtn">Unlock</button>
+      </div>
+    </div>`;
+    document.getElementById("adminLoginBtn").addEventListener("click", ()=>{
+      const val = document.getElementById("adminPassInput").value;
+      if(val === ADMIN_PASSWORD){ isAdmin = true; renderAdminPanel(); }
+      else alert("Wrong password.");
+    });
+    return;
+  }
+
+  const bracket = buildBracket();
+  let html = `<h2 style="color:var(--coral); font-size:20px;">Admin — Set Results</h2>
+  <p style="color:var(--chalk-dim); font-size:13px;">Pick the actual winner of each match. This updates everyone's dashboard instantly.</p>`;
+
+  ROUNDS.forEach(roundKey=>{
+    const matches = bracket[roundKey];
+    const playable = matches.some(m=>m.a && m.b);
+    if(!playable) return;
+    html += `<div class="round-head"><h3>${ROUND_LABELS[roundKey]}</h3><div class="line"></div></div>`;
+    matches.forEach(m=>{
+      if(!m.a || !m.b) return;
+      const current = resultFor(m.id) || "";
+      html += `<div class="admin-match-row">
+        <div class="label">${m.a} <span style="color:var(--chalk-dim)">vs</span> ${m.b}</div>
+        <div>
+          <select data-match="${m.id}">
+            <option value="">— pick winner —</option>
+            <option value="${m.a}" ${current===m.a?'selected':''}>${m.a}</option>
+            <option value="${m.b}" ${current===m.b?'selected':''}>${m.b}</option>
+          </select>
+          <span class="admin-saved" id="saved_${m.id}" style="visibility:${current?'visible':'hidden'}">✓ saved</span>
+        </div>
+      </div>`;
+    });
+  });
+
+  container.innerHTML = html;
+  container.querySelectorAll("select[data-match]").forEach(sel=>{
+    sel.addEventListener("change", async ()=>{
+      if(!sel.value) return;
+      await saveResult(sel.dataset.match, sel.value);
+      const flag = document.getElementById(`saved_${sel.dataset.match}`);
+      if(flag) flag.style.visibility = "visible";
+    });
+  });
+}
+
+/* ======================================================================
+   10) LOGIN FLOW
+   ====================================================================== */
+function showLogin(){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById("loginPanel").classList.add("active");
+  document.getElementById("tabsNav").style.display = "none";
+  updateUserChip();
+}
+
+document.getElementById("enterBtn").addEventListener("click", async ()=>{
+  const val = document.getElementById("nameInput").value.trim();
+  if(!val){ alert("Please enter a name."); return; }
+  currentUser = val;
+  localStorage.setItem("riaz_fifa_user", currentUser);
+  try{ await fetchAll(); } catch(e){ console.error(e); }
+  document.getElementById("tabsNav").style.display = "flex";
+  renderTabs();
+  showPanel("predict");
+});
+document.getElementById("nameInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") document.getElementById("enterBtn").click();
+});
+document.getElementById("switchUserLink").addEventListener("click", ()=>{
+  currentUser = null;
+  localStorage.removeItem("riaz_fifa_user");
+  showLogin();
+});
+
+/* ======================================================================
+   11) BOOT
+   ====================================================================== */
+async function boot(){
+  initSupabase();
+  try{ await fetchAll(); } catch(e){ console.error(e); }
+  if(currentUser){
+    document.getElementById("tabsNav").style.display = "flex";
+    renderTabs();
+    showPanel("predict");
+  } else {
+    showLogin();
+  }
+  // light polling so everyone sees live updates without a hard refresh
+  setInterval(async ()=>{
+    await fetchAll();
+    const activePanel = document.querySelector(".panel.active");
+    if(!activePanel) return;
+    if(activePanel.id === "predictPanel") renderPredictPanel();
+    if(activePanel.id === "dashboardPanel") renderDashboard();
+    if(activePanel.id === "adminPanel" && isAdmin) renderAdminPanel();
+    if(document.getElementById("tabsNav").style.display !== "none") renderTabs();
+  }, 8000);
+}
+boot();
+</script>
+
+<!-- ======================================================================
+README — SETUP STEPS (read this, then delete this comment if you like)
+
+1) Create a free Supabase project at https://supabase.com
+2) In the SQL editor, run:
+
+   create table predictions (
+     id bigint generated always as identity primary key,
+     name text not null,
+     match_id text not null,
+     pick text not null,
+     created_at timestamptz default now(),
+     unique(name, match_id)
+   );
+
+   create table results (
+     id bigint generated always as identity primary key,
+     match_id text not null unique,
+     winner text not null,
+     updated_at timestamptz default now()
+   );
+
+   alter table predictions enable row level security;
+   alter table results enable row level security;
+
+   create policy "anyone can read predictions" on predictions for select using (true);
+   create policy "anyone can write predictions" on predictions for insert with check (true);
+   create policy "anyone can update predictions" on predictions for update using (true);
+
+   create policy "anyone can read results" on results for select using (true);
+   create policy "anyone can write results" on results for insert with check (true);
+   create policy "anyone can update results" on results for update using (true);
+
+   (Note: this keeps it simple for a private family pool — anyone with the link
+   can technically write. Since you're the only one using the Admin tab in
+   practice, and the link won't be public on the open internet, this is fine
+   for a 20-person family pool. If you want it locked down tighter later, we
+   can add Supabase Auth.)
+
+3) In Settings → API, copy your "Project URL" and "anon public" key into
+   SUPABASE_URL and SUPABASE_ANON_KEY near the top of the script above.
+
+4) Change ADMIN_PASSWORD to something only you know.
+
+5) Push this file (rename to index.html) to a GitHub repo, enable GitHub
+   Pages (Settings → Pages → Deploy from branch → main → /root), and share
+   the resulting https://yourname.github.io/reponame/ link with the family.
+
+6) As real results come in, go to the Admin tab, enter the password, and
+   select each winner. Round of 16 / QF / SF / Final unlock automatically
+   once their feeder matches have results.
+====================================================================== -->
+</body>
+</html>
